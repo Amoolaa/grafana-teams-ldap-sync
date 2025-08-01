@@ -11,6 +11,7 @@ import (
 	"github.com/Amoolaa/grafana-teams-ldap-sync/sync/grafana"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/env/v2"
+	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 	flag "github.com/spf13/pflag"
 )
@@ -67,6 +68,7 @@ func initConfig(flags *flag.FlagSet) (*sync.Syncer, error) {
 	var provider koanf.Provider
 	if cfgFile != "" {
 		s.Logger.Info("using config file", "path", cfgFile)
+		provider = file.Provider(cfgFile)
 	} else {
 		s.Logger.Error("no config file provided")
 		os.Exit(1)

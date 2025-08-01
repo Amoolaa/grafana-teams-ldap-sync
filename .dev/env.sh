@@ -1,0 +1,3 @@
+export GRAFANA_PASSWORD=admin
+export GRAFANA_USER=admin
+export LDAP_PASSWORD=admin

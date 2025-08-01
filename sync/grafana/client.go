@@ -14,7 +14,7 @@ import (
 const (
 	searchTeamsPath           = "/api/teams/search"
 	teamsPath                 = "/api/teams"
-	BulkUpdateTeamMembersPath = "/api/teams/%d/teams"
+	BulkUpdateTeamMembersPath = "/api/teams/%d/members"
 )
 
 var (

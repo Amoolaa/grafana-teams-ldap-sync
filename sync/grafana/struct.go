@@ -7,9 +7,9 @@ type Team struct {
 	Name          string `json:"name"`
 	Email         string `json:"email"`
 	ExternalUID   string `json:"externalUID"`
-	IsProvisioned string `json:"isProvisioned"`
+	IsProvisioned bool   `json:"isProvisioned"`
 	AvatarURL     string `json:"avatarUrl"`
-	MemberCount   string `json:"memberCount"`
+	MemberCount   int    `json:"memberCount"`
 	Permission    int    `jso:"permission"`
 }
 

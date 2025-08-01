@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  ldap:
+    image: osixia/openldap:1.5.0
+    container_name: ldap
+    environment:
+      LDAP_ORGANISATION: "Example Org"
+      LDAP_DOMAIN: "example.org"
+      LDAP_ADMIN_PASSWORD: "admin"
+    ports:
+      - "389:389"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "admin"
+      GF_AUTH_LDAP_ENABLED: true
+      GF_AUTH_LDAP_CONFIG_FILE: /ldap.toml
+      GF_AUTH_LDAP_ALLOW_SIGN_UP: true
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./ldap.toml:/ldap.toml
+    depends_on:
+      - ldap
