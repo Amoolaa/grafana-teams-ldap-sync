@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
-	"net/http"
 	"strconv"
 	"time"
 
@@ -23,20 +22,6 @@ type Syncer struct {
 func NewSyncer(logger *slog.Logger) *Syncer {
 	return &Syncer{
 		Logger: logger,
-	}
-}
-
-func (s *Syncer) Start() error {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /sync", s.SyncHandler)
-	s.Logger.Info("serving traffic on :8080")
-	return http.ListenAndServe(":8080", mux)
-}
-
-func (s *Syncer) SyncHandler(w http.ResponseWriter, r *http.Request) {
-	if err := s.Sync(); err != nil {
-		s.Logger.Error("sync error", "error", err)
-		http.Error(w, fmt.Sprintf("sync error: %v", err), http.StatusInternalServerError)
 	}
 }
 

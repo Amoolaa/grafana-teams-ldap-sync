@@ -20,6 +20,8 @@ const (
 	configFlag  = "config"
 	mappingFlag = "mapping"
 	levelFlag   = "level"
+
+	listenAddressFlag = "listen-address"
 )
 
 var commonFlags = []cli.Flag{
@@ -42,6 +44,15 @@ var commonFlags = []cli.Flag{
 	},
 }
 
+var syncFlags = commonFlags
+var serverFlags = append(commonFlags,
+	&cli.StringFlag{
+		Name:  listenAddressFlag,
+		Usage: "address for server to listen on",
+		Value: ":8080",
+	},
+)
+
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 
@@ -52,20 +63,20 @@ func main() {
 			{
 				Name:  "server",
 				Usage: "run as server",
-				Flags: commonFlags,
+				Flags: serverFlags,
 				Action: func(c *cli.Context) error {
 					s, err := initSyncer(c)
 					if err != nil {
 						log.Fatalf("failed to initialise config: %v", err)
 					}
 					s.GrafanaClient = grafana.NewClient(s.Config.Grafana)
-					return s.Start()
+					return s.Start(c.String(listenAddressFlag))
 				},
 			},
 			{
 				Name:  "sync",
 				Usage: "run a sync job",
-				Flags: commonFlags,
+				Flags: syncFlags,
 				Action: func(c *cli.Context) error {
 					s, err := initSyncer(c)
 					if err != nil {
