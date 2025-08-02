@@ -7,14 +7,17 @@ import (
 )
 
 type LDAPConfig struct {
-	Host             string           `koanf:"host"`
-	BindDN           string           `koanf:"bind_dn"`
-	Password         string           `koanf:"password"`
-	BaseDN           string           `koanf:"base_dn"`
-	ServerAttributes ServerAttributes `koanf:"server_attributes"`
+	Host               string     `koanf:"host"`
+	Port               int        `koanf:"port"`
+	UseSSL             bool       `koanf:"use_ssl"`
+	InsecureSkipVerify bool       `koanf:"insecure_skip_verify"`
+	BindDN             string     `koanf:"bind_dn"`
+	Password           string     `koanf:"password"`
+	BaseDN             string     `koanf:"base_dn"`
+	Attributes         Attributes `koanf:"attributes"`
 }
 
-type ServerAttributes struct {
+type Attributes struct {
 	Email string `koanf:"email"`
 }
 

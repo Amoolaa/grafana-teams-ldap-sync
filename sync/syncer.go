@@ -1,11 +1,14 @@
 package sync
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
-	"os"
+	"strconv"
+	"time"
 
 	"github.com/Amoolaa/grafana-teams-ldap-sync/sync/grafana"
 	"github.com/go-ldap/ldap/v3"
@@ -17,9 +20,9 @@ type Syncer struct {
 	GrafanaClient *grafana.Client
 }
 
-func NewSyncer() *Syncer {
+func NewSyncer(logger *slog.Logger) *Syncer {
 	return &Syncer{
-		Logger: slog.New(slog.NewJSONHandler(os.Stdout, nil)),
+		Logger: logger,
 	}
 }
 
@@ -37,8 +40,33 @@ func (s *Syncer) SyncHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func getLdapConn(cfg LDAPConfig) (*ldap.Conn, error) {
+	address := net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port))
+	timeout := 10 * time.Second
+	var conn *ldap.Conn
+	if cfg.UseSSL {
+		tlsCfg := &tls.Config{
+			InsecureSkipVerify: cfg.InsecureSkipVerify,
+			ServerName:         cfg.Host,
+		}
+		c, err := tls.DialWithDialer(&net.Dialer{Timeout: timeout}, "tcp", address, tlsCfg)
+		if err != nil {
+			return nil, err
+		}
+		conn = ldap.NewConn(c, true)
+	} else {
+		c, err := net.DialTimeout("tcp", address, timeout)
+		if err != nil {
+			return nil, err
+		}
+		conn = ldap.NewConn(c, false)
+	}
+	conn.Start()
+	return conn, nil
+}
+
 func (s *Syncer) Sync() error {
-	ldapConn, err := ldap.DialURL(s.Config.LDAP.Host)
+	ldapConn, err := getLdapConn(s.Config.LDAP)
 	if err != nil {
 		return fmt.Errorf("LDAP connect error: %w", err)
 	}
@@ -94,7 +122,7 @@ func (s *Syncer) GetEmails(ldapConn *ldap.Conn, t TeamConfig, filter string) ([]
 	searchRequest := ldap.NewSearchRequest(
 		s.Config.LDAP.BaseDN,
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
-		filter, []string{s.Config.LDAP.ServerAttributes.Email},
+		filter, []string{s.Config.LDAP.Attributes.Email},
 		nil,
 	)
 
@@ -104,7 +132,7 @@ func (s *Syncer) GetEmails(ldapConn *ldap.Conn, t TeamConfig, filter string) ([]
 	}
 	var emails []string
 	for _, entry := range sr.Entries {
-		emails = append(emails, entry.GetAttributeValues(s.Config.LDAP.ServerAttributes.Email)...)
+		emails = append(emails, entry.GetAttributeValues(s.Config.LDAP.Attributes.Email)...)
 	}
 	return emails, nil
 }

@@ -19,7 +19,28 @@ import (
 const (
 	configFlag  = "config"
 	mappingFlag = "mapping"
+	levelFlag   = "level"
 )
+
+var commonFlags = []cli.Flag{
+	&cli.StringFlag{
+		Name:     configFlag,
+		Usage:    "path to config file",
+		Value:    "config.yaml",
+		Required: true,
+	},
+	&cli.StringFlag{
+		Name:     mappingFlag,
+		Usage:    "path to mapping config file",
+		Value:    "mapping.yaml",
+		Required: true,
+	},
+	&cli.StringFlag{
+		Name:  levelFlag,
+		Usage: "log level",
+		Value: slog.LevelInfo.String(),
+	},
+}
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
@@ -31,32 +52,29 @@ func main() {
 			{
 				Name:  "server",
 				Usage: "run as server",
+				Flags: commonFlags,
 				Action: func(c *cli.Context) error {
-					return nil
+					s, err := initSyncer(c)
+					if err != nil {
+						log.Fatalf("failed to initialise config: %v", err)
+					}
+					s.GrafanaClient = grafana.NewClient(s.Config.Grafana)
+					return s.Start()
 				},
 			},
-		},
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     configFlag,
-				Usage:    "path to config file",
-				Value:    "config.yaml",
-				Required: true,
+			{
+				Name:  "sync",
+				Usage: "run a sync job",
+				Flags: commonFlags,
+				Action: func(c *cli.Context) error {
+					s, err := initSyncer(c)
+					if err != nil {
+						log.Fatalf("failed to initialise config: %v", err)
+					}
+					s.GrafanaClient = grafana.NewClient(s.Config.Grafana)
+					return s.Sync()
+				},
 			},
-			&cli.StringFlag{
-				Name:     mappingFlag,
-				Usage:    "path to mapping config file",
-				Value:    "mapping.yaml",
-				Required: true,
-			},
-		},
-		Action: func(c *cli.Context) error {
-			s, err := initSyncer(c)
-			if err != nil {
-				log.Fatalf("failed to initialise config: %v", err)
-			}
-			s.GrafanaClient = grafana.NewClient(s.Config.Grafana)
-			return s.Sync()
 		},
 	}
 
@@ -66,7 +84,12 @@ func main() {
 }
 
 func initSyncer(c *cli.Context) (*sync.Syncer, error) {
-	s := sync.NewSyncer()
+	var lvl slog.Level
+	if err := lvl.UnmarshalText([]byte(c.String(levelFlag))); err != nil {
+		return nil, fmt.Errorf("unable to unmarshal log level: %w", err)
+	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
+	s := sync.NewSyncer(logger)
 
 	// parse config
 	k := koanf.New(".")
