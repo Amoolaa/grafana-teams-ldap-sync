@@ -14,7 +14,8 @@ import (
 const (
 	searchTeamsPath           = "/api/teams/search"
 	teamsPath                 = "/api/teams"
-	BulkUpdateTeamMembersPath = "/api/teams/%d/members"
+	bulkUpdateTeamMembersPath = "/api/teams/%d/members"
+	getAllUsersInOrgPath      = "/api/org/users"
 )
 
 var (
@@ -121,10 +122,18 @@ func (c *Client) AddTeam(orgId int, team string) (*AddTeamResponse, error) {
 
 func (c *Client) BulkUpdateTeamMembers(orgId, teamId int, memberEmails, adminEmails []string) (*BulkUpdateTeamMembersResponse, error) {
 	payload := BulkUpdateTeamMembersPayload{Members: memberEmails, Admins: adminEmails}
-	path := fmt.Sprintf(BulkUpdateTeamMembersPath, teamId)
+	path := fmt.Sprintf(bulkUpdateTeamMembersPath, teamId)
 	resp, err := Request[BulkUpdateTeamMembersResponse](c, http.MethodPut, path, payload, nil, orgId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update team id %d in orgId %d: %w", teamId, orgId, err)
 	}
 	return resp, nil
+}
+
+func (c *Client) GetAllUsersInOrg(orgId int) ([]User, error) {
+	resp, err := Request[[]User](c, http.MethodGet, getAllUsersInOrgPath, nil, nil, orgId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users in org id %d: %w", orgId, err)
+	}
+	return *resp, nil
 }

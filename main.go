@@ -58,7 +58,7 @@ func main() {
 
 	app := &cli.App{
 		Name:  "grafana-teams-ldap-sync",
-		Usage: "blah blah",
+		Usage: "Sync Grafana Teams with LDAP",
 		Commands: []*cli.Command{
 			{
 				Name:  "server",

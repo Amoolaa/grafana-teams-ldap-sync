@@ -65,39 +65,76 @@ func (s *Syncer) Sync() error {
 	var errs error
 
 	for _, m := range s.Config.Mapping {
+		var orgErrs error
 		for _, t := range m.Teams {
 			var memberEmails, adminEmails []string
 			if t.MemberUserFilter != "" {
 				memberEmails, err = s.GetEmails(ldapConn, t, t.MemberUserFilter)
 				if err != nil {
 					s.Logger.Error("failed to get users for filter", "filter", t.MemberUserFilter, "error", err)
-					errs = errors.Join(errs, err)
+					orgErrs = errors.Join(orgErrs, err)
+					continue
 				}
 			}
 			if t.AdminUserFilter != "" {
 				adminEmails, err = s.GetEmails(ldapConn, t, t.AdminUserFilter)
 				if err != nil {
 					s.Logger.Error("failed to get users for filter", "filter", t.AdminUserFilter, "error", err)
-					errs = errors.Join(errs, err)
+					orgErrs = errors.Join(orgErrs, err)
+					continue
 				}
 			}
 
-			adminSet := make(map[string]struct{}, len(adminEmails))
+			// need to filter through and check if any users do not exist (i.e. have never logged in), otherwise batch update will fail
+			currentUsers, err := s.GrafanaClient.GetAllUsersInOrg(m.OrgID)
+			if err != nil {
+				orgErrs = errors.Join(orgErrs, err)
+				continue
+			}
+
+			// convert to set (for quick lookup)
+			activeEmailSet := make(map[string]bool, len(currentUsers))
+			for _, user := range currentUsers {
+				activeEmailSet[user.Email] = true
+			}
+
+			// any emails that appear in both members and admins will only be part of the admin list
+			adminSet := make(map[string]bool, len(adminEmails))
 			for _, email := range adminEmails {
-				adminSet[email] = struct{}{}
+				adminSet[email] = true
 			}
 
 			var filteredMembers []string
 			for _, email := range memberEmails {
-				if _, isAdmin := adminSet[email]; !isAdmin {
-					filteredMembers = append(filteredMembers, email)
+				if !adminSet[email] {
+					if activeEmailSet[email] {
+						filteredMembers = append(filteredMembers, email)
+					} else {
+						s.Logger.Warn("user missing in grafana dropped from member list", "email", email)
+					}
 				}
 			}
 
-			s.Logger.Info("successfully fetched user emails", "adminEmails", adminEmails, "memberEmails", filteredMembers)
-			if err := s.TeamSync(m.OrgID, t.Name, filteredMembers, adminEmails); err != nil {
-				errs = errors.Join(errs, err)
+			var filteredAdmins []string
+			for _, email := range adminEmails {
+				if adminSet[email] {
+					if activeEmailSet[email] {
+						filteredAdmins = append(filteredAdmins, email)
+					} else {
+						s.Logger.Warn("user missing in grafana dropped from admin list", "email", email)
+					}
+				}
 			}
+
+			s.Logger.Info("successfully fetched user emails", "adminEmails", filteredAdmins, "memberEmails", filteredMembers)
+			if err := s.TeamSync(m.OrgID, t.Name, filteredMembers, filteredAdmins); err != nil {
+				orgErrs = errors.Join(orgErrs, err)
+				continue
+			}
+		}
+		if orgErrs != nil {
+			s.Logger.Error("errors while syncing org", "orgId", m.OrgID, "errors", orgErrs)
+			errs = errors.Join(errs, orgErrs)
 		}
 	}
 	return errs
