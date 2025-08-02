@@ -13,58 +13,64 @@ import (
 	"github.com/knadh/koanf/providers/env/v2"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
-	flag "github.com/spf13/pflag"
+	"github.com/urfave/cli/v2"
 )
 
 const (
-	configFlag = "config"
+	configFlag  = "config"
+	mappingFlag = "mapping"
 )
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 
-	flags := flag.NewFlagSet("config", flag.ContinueOnError)
-	initFlags(flags)
-
-	flags.Parse(os.Args[1:])
-	s, err := initConfig(flags)
-	if err != nil {
-		log.Fatalf("failed to initialise config: %v", err)
+	app := &cli.App{
+		Name:  "grafana-teams-ldap-sync",
+		Usage: "blah blah",
+		Commands: []*cli.Command{
+			{
+				Name:  "server",
+				Usage: "run as server",
+				Action: func(c *cli.Context) error {
+					return nil
+				},
+			},
+		},
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     configFlag,
+				Usage:    "path to config file",
+				Value:    "config.yaml",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:     mappingFlag,
+				Usage:    "path to mapping config file",
+				Value:    "mapping.yaml",
+				Required: true,
+			},
+		},
+		Action: func(c *cli.Context) error {
+			s, err := initSyncer(c)
+			if err != nil {
+				log.Fatalf("failed to initialise config: %v", err)
+			}
+			s.GrafanaClient = grafana.NewClient(s.Config.Grafana)
+			return s.Sync()
+		},
 	}
 
-	if err := sync.ValidateConfig(s.Config); err != nil {
-		log.Fatalf("failed to validate config: %v", err)
-	}
-
-	g := grafana.NewClient(s.Config.Grafana)
-	s.GrafanaClient = g
-
-	if s.Config.Sync.Enabled {
-		cron, err := s.InitCron()
-		if err != nil {
-			log.Fatalf("failed to initialise cron job: %v", err)
-		}
-		defer func() { _ = cron.Shutdown() }()
-	}
-
-	if err = s.Start(); err != nil {
-		s.Logger.Error("error serving traffic", "error", err)
-		os.Exit(1)
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
 	}
 }
 
-func initFlags(f *flag.FlagSet) {
-	f.String(configFlag, "", "path to config file")
-	f.Usage = func() {
-		fmt.Println(f.FlagUsages())
-		os.Exit(0)
-	}
-}
-
-func initConfig(flags *flag.FlagSet) (*sync.Syncer, error) {
+func initSyncer(c *cli.Context) (*sync.Syncer, error) {
 	s := sync.NewSyncer()
 
-	cfgFile, _ := flags.GetString(configFlag)
+	// parse config
+	k := koanf.New(".")
+	cfgFile := c.String(configFlag)
 	var provider koanf.Provider
 	if cfgFile != "" {
 		s.Logger.Info("using config file", "path", cfgFile)
@@ -74,10 +80,22 @@ func initConfig(flags *flag.FlagSet) (*sync.Syncer, error) {
 		os.Exit(1)
 	}
 
-	k := koanf.New(".")
-
 	if err := k.Load(provider, yaml.Parser()); err != nil {
 		return nil, fmt.Errorf("failed to load configuration file: %w", err)
+	}
+
+	// parse mapping file
+	mappingFile := c.String(mappingFlag)
+	if cfgFile != "" {
+		s.Logger.Info("using mapping file", "path", mappingFile)
+		provider = file.Provider(mappingFile)
+	} else {
+		s.Logger.Error("no mapping file provided")
+		os.Exit(1)
+	}
+
+	if err := k.Load(provider, yaml.Parser()); err != nil {
+		return nil, fmt.Errorf("failed to load mapping file: %w", err)
 	}
 
 	envProvider := env.Provider(".", env.Opt{
@@ -96,5 +114,10 @@ func initConfig(flags *flag.FlagSet) (*sync.Syncer, error) {
 	}
 
 	s.Config = cfg
+
+	if err := sync.ValidateConfig(s.Config); err != nil {
+		log.Fatalf("failed to validate config: %v", err)
+	}
+
 	return s, nil
 }

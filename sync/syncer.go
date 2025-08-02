@@ -54,17 +54,17 @@ func (s *Syncer) Sync() error {
 	for _, m := range s.Config.Mapping {
 		for _, t := range m.Teams {
 			var memberEmails, adminEmails []string
-			if t.MemberFilter.User != "" {
-				memberEmails, err = s.GetEmails(ldapConn, t, t.MemberFilter.User)
+			if t.MemberUserFilter != "" {
+				memberEmails, err = s.GetEmails(ldapConn, t, t.MemberUserFilter)
 				if err != nil {
-					s.Logger.Error("failed to get users for filter", "filter", t.MemberFilter.User, "error", err)
+					s.Logger.Error("failed to get users for filter", "filter", t.MemberUserFilter, "error", err)
 					errs = errors.Join(errs, err)
 				}
 			}
-			if t.AdminFilter.User != "" {
-				adminEmails, err = s.GetEmails(ldapConn, t, t.AdminFilter.User)
+			if t.AdminUserFilter != "" {
+				adminEmails, err = s.GetEmails(ldapConn, t, t.AdminUserFilter)
 				if err != nil {
-					s.Logger.Error("failed to get users for filter", "filter", t.AdminFilter.User, "error", err)
+					s.Logger.Error("failed to get users for filter", "filter", t.AdminUserFilter, "error", err)
 					errs = errors.Join(errs, err)
 				}
 			}

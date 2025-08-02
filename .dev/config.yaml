@@ -6,19 +6,3 @@ ldap:
     email: mail
 grafana:
   url: "http://localhost:3000"
-sync:
-  enabled: false
-  schedule: "* * * * *"
-mapping:
-  - org_id: 1
-    teams:
-      - name: foo
-        admins:
-          user_filter: "(objectClass=inetOrgPerson)"
-        memers:
-          user_filter: "(objectClass=inetOrgPerson)"
-  # - org_id: 2
-  #   teams:
-  #     - name: just bob
-  #       admins:
-  #         user_filter: "(&(objectClass=inetOrgPerson)(uid=bob))"

@@ -1,0 +1,6 @@
+mapping:
+  - org_id: 1
+    teams:
+      - name: foo
+        member_user_filter: "(objectClass=inetOrgPerson)"
+

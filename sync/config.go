@@ -24,13 +24,9 @@ type SyncConfig struct {
 }
 
 type TeamConfig struct {
-	Name         string `koanf:"name"`
-	AdminFilter  Filter `koanf:"admins"`
-	MemberFilter Filter `koanf:"members"`
-}
-
-type Filter struct {
-	User string `koanf:"user_filter"`
+	Name             string `koanf:"name"`
+	AdminUserFilter  string `koanf:"admin_user_filter"`
+	MemberUserFilter string `koanf:"member_user_filter"`
 }
 
 type MappingConfig struct {
@@ -49,8 +45,8 @@ func ValidateConfig(c Config) error {
 	for _, m := range c.Mapping {
 		for _, t := range m.Teams {
 			// team config must contain at least an admin or member filter
-			if t.AdminFilter.User == "" && t.MemberFilter.User == "" {
-				return fmt.Errorf("one of admin or member user_filter must be specified for team %s in orgId %d", t.Name, m.OrgID)
+			if t.AdminUserFilter == "" && t.MemberUserFilter == "" {
+				return fmt.Errorf("one of admin_user_filter or member_user_filter must be specified for team %s in orgId %d", t.Name, m.OrgID)
 			}
 		}
 	}
