@@ -4,4 +4,3 @@ mapping:
       - name: foo
         admin_user_filter: "(objectClass=inetOrgPerson)"
         member_user_filter: "(objectClass=inetOrgPerson)"
-

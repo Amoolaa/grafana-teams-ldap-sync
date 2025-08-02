@@ -66,6 +66,16 @@ func (s *Syncer) Sync() error {
 
 	for _, m := range s.Config.Mapping {
 		var orgErrs error
+		// need to filter through and check if any users do not exist (i.e. have never logged in), otherwise batch update will fail
+		currentUsers, err := s.GrafanaClient.GetAllUsersInOrg(m.OrgID)
+		if err != nil {
+			orgErrs = errors.Join(orgErrs, err)
+			s.Logger.Error("errors while syncing org", "orgId", m.OrgID, "errors", orgErrs)
+			continue
+		}
+
+		s.Logger.Info("fetched users from org", "orgId", m.OrgID, "num_users", len(currentUsers))
+
 		for _, t := range m.Teams {
 			var memberEmails, adminEmails []string
 			if t.MemberUserFilter != "" {
@@ -83,13 +93,6 @@ func (s *Syncer) Sync() error {
 					orgErrs = errors.Join(orgErrs, err)
 					continue
 				}
-			}
-
-			// need to filter through and check if any users do not exist (i.e. have never logged in), otherwise batch update will fail
-			currentUsers, err := s.GrafanaClient.GetAllUsersInOrg(m.OrgID)
-			if err != nil {
-				orgErrs = errors.Join(orgErrs, err)
-				continue
 			}
 
 			// convert to set (for quick lookup)

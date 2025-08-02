@@ -38,9 +38,10 @@ var commonFlags = []cli.Flag{
 		Required: true,
 	},
 	&cli.StringFlag{
-		Name:  levelFlag,
-		Usage: "log level",
-		Value: slog.LevelInfo.String(),
+		Name:   levelFlag,
+		Usage:  "log level",
+		Value:  slog.LevelInfo.String(),
+		Hidden: true,
 	},
 }
 
