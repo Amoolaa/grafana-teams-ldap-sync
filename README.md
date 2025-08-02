@@ -1,6 +1,6 @@
 # grafana-teams-ldap-sync
 
-A tool to synchronize Grafana Teams membership with LDAP/Active Directory groups based on LDAP user filters. It supports multiple organisations, team member and admin roles, and can run either as a one-time sync or as a server with an endpoint that does adhoc syncs.
+A tool to synchronize Grafana Teams membership with LDAP/Active Directory groups based on LDAP user filters. It supports multiple organisations, team member and admin roles, and can run either as a one-time sync or as a server with an endpoint that does adhoc syncs. This aims to match what is offered in [Grafana Cloud and Enterprise for LDAP team synchronisation](https://grafana.com/docs/grafana/latest/setup-grafana/configure-security/configure-authentication/enhanced-ldap/) for users of Grafana OSS.
 
 ## Installation
 
