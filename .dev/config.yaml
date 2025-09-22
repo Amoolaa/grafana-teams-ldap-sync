@@ -5,7 +5,10 @@ ldap:
   insecure_skip_verify: false
   bind_dn: "cn=admin,dc=example,dc=org"
   base_dn: "dc=example,dc=org"
+  base_group_filter: "(objectClass=groupOfNames)"
+  base_user_filter: "(objectClass=inetOrgPerson)"
   attributes:
     email: mail
+    member: member
 grafana:
   url: "http://localhost:3000"

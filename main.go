@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/Amoolaa/grafana-teams-ldap-sync/sync"
 	"github.com/Amoolaa/grafana-teams-ldap-sync/sync/grafana"
@@ -13,6 +14,7 @@ import (
 	"github.com/knadh/koanf/providers/env/v2"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
+	"github.com/patrickmn/go-cache"
 	"github.com/urfave/cli/v2"
 )
 
@@ -101,7 +103,9 @@ func initSyncer(c *cli.Context) (*sync.Syncer, error) {
 		return nil, fmt.Errorf("unable to unmarshal log level: %w", err)
 	}
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
-	s := sync.NewSyncer(logger)
+
+	userCache := cache.New(1*time.Hour, 2*time.Hour)
+	s := sync.NewSyncer(logger, userCache)
 
 	// parse config
 	k := koanf.New(".")

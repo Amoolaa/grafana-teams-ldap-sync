@@ -23,12 +23,11 @@ mapping:
   - org_id: 1
     teams:
       - name: foo
-        admin_user_filter: "(objectClass=inetOrgPerson)"
-        member_user_filter: "(objectClass=inetOrgPerson)"
+        admin_group_filter: "(cn=admins)"
 ```
 the sync will:
 - Create a team with name "foo" in orgId 1 if it doesn't already exist
-- Fetch users from LDAP using `admin_user_filter`, `member_user_filter`. If a user is returned in both the `admin_user_filter` and `member_user_filter`, they are made an admin of the team. We use the email attribute specified in `ldap.attributes.email`
+- Fetch users from LDAP using `admin_user_filter`, `member_user_filter`, `admin_group_filter`, `member_group_filter`. If a user is returned in both the `admin_*` and `member_*` filters, they are made an admin of the team (i.e. admin takes preference). We use the email attribute specified in `ldap.attributes.email`.
 - Drop any users who are not users in Grafana (in other words, they must have logged in to Grafana at least once to be eligible for the sync).
 - Perform a bulk update to the members of the team the email attributes of users  specified in `ldap.attributes.email`.
 

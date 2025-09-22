@@ -14,11 +14,14 @@ type LDAPConfig struct {
 	BindDN             string     `koanf:"bind_dn"`
 	Password           string     `koanf:"password"`
 	BaseDN             string     `koanf:"base_dn"`
+	BaseUserFilter     string     `koanf:"base_user_filter"`
+	BaseGroupFilter    string     `koanf:"base_group_filter"`
 	Attributes         Attributes `koanf:"attributes"`
 }
 
 type Attributes struct {
-	Email string `koanf:"email"`
+	Email  string `koanf:"email"`
+	Member string `koanf:"member"`
 }
 
 type SyncConfig struct {
@@ -27,9 +30,11 @@ type SyncConfig struct {
 }
 
 type TeamConfig struct {
-	Name             string `koanf:"name"`
-	AdminUserFilter  string `koanf:"admin_user_filter"`
-	MemberUserFilter string `koanf:"member_user_filter"`
+	Name              string `koanf:"name"`
+	AdminUserFilter   string `koanf:"admin_user_filter"`
+	AdminGroupFilter  string `koanf:"admin_group_filter"`
+	MemberUserFilter  string `koanf:"member_user_filter"`
+	MemberGroupFilter string `koanf:"member_group_filter"`
 }
 
 type MappingConfig struct {
@@ -48,8 +53,8 @@ func ValidateConfig(c Config) error {
 	for _, m := range c.Mapping {
 		for _, t := range m.Teams {
 			// team config must contain at least an admin or member filter
-			if t.AdminUserFilter == "" && t.MemberUserFilter == "" {
-				return fmt.Errorf("one of admin_user_filter or member_user_filter must be specified for team %s in orgId %d", t.Name, m.OrgID)
+			if t.AdminUserFilter == "" && t.MemberUserFilter == "" && t.AdminGroupFilter == "" && t.MemberGroupFilter == "" {
+				return fmt.Errorf("one of admin_user_filter, member_user_filter, admin_group_filter, member_group_filter must be specified for team %s in orgId %d", t.Name, m.OrgID)
 			}
 		}
 	}

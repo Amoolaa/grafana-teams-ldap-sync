@@ -22,8 +22,21 @@ cn: Bob Example
 mail: bob@example.org
 userPassword: password
 
+dn: uid=jane,ou=users,dc=example,dc=org
+objectClass: inetOrgPerson
+uid: jane
+sn: Jane
+cn: Jane Example
+mail: jane@example.org
+userPassword: password
+
 dn: cn=devs,ou=groups,dc=example,dc=org
 objectClass: groupOfNames
 cn: devs
 member: uid=alice,ou=users,dc=example,dc=org
 member: uid=bob,ou=users,dc=example,dc=org
+
+dn: cn=admins,ou=groups,dc=example,dc=org
+objectClass: groupOfNames
+cn: admins
+member: uid=jane,ou=users,dc=example,dc=org

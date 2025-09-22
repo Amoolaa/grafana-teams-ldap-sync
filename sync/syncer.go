@@ -11,17 +11,21 @@ import (
 
 	"github.com/Amoolaa/grafana-teams-ldap-sync/sync/grafana"
 	"github.com/go-ldap/ldap/v3"
+	"github.com/patrickmn/go-cache"
 )
 
 type Syncer struct {
 	Logger        *slog.Logger
 	Config        Config
 	GrafanaClient *grafana.Client
+
+	UserCache *cache.Cache
 }
 
-func NewSyncer(logger *slog.Logger) *Syncer {
+func NewSyncer(logger *slog.Logger, userCache *cache.Cache) *Syncer {
 	return &Syncer{
-		Logger: logger,
+		Logger:    logger,
+		UserCache: userCache,
 	}
 }
 
@@ -79,20 +83,40 @@ func (s *Syncer) Sync() error {
 		for _, t := range m.Teams {
 			var memberEmails, adminEmails []string
 			if t.MemberUserFilter != "" {
-				memberEmails, err = s.GetEmails(ldapConn, t, t.MemberUserFilter)
+				emails, err := s.GetEmailsForUserFilter(ldapConn, t.MemberUserFilter)
 				if err != nil {
 					s.Logger.Error("failed to get users for filter", "filter", t.MemberUserFilter, "error", err)
 					orgErrs = errors.Join(orgErrs, err)
 					continue
 				}
+				memberEmails = append(memberEmails, emails...)
 			}
 			if t.AdminUserFilter != "" {
-				adminEmails, err = s.GetEmails(ldapConn, t, t.AdminUserFilter)
+				emails, err := s.GetEmailsForUserFilter(ldapConn, t.AdminUserFilter)
 				if err != nil {
 					s.Logger.Error("failed to get users for filter", "filter", t.AdminUserFilter, "error", err)
 					orgErrs = errors.Join(orgErrs, err)
 					continue
 				}
+				adminEmails = append(adminEmails, emails...)
+			}
+			if t.MemberGroupFilter != "" {
+				emails, err := s.GetEmailsForGroupFilter(ldapConn, t.MemberGroupFilter)
+				if err != nil {
+					s.Logger.Error("failed to get users for filter", "filter", t.MemberGroupFilter, "error", err)
+					orgErrs = errors.Join(orgErrs, err)
+					continue
+				}
+				memberEmails = append(memberEmails, emails...)
+			}
+			if t.AdminGroupFilter != "" {
+				emails, err := s.GetEmailsForGroupFilter(ldapConn, t.AdminGroupFilter)
+				if err != nil {
+					s.Logger.Error("failed to get users for filter", "filter", t.AdminGroupFilter, "error", err)
+					orgErrs = errors.Join(orgErrs, err)
+					continue
+				}
+				adminEmails = append(adminEmails, emails...)
 			}
 
 			// convert to set (for quick lookup)
@@ -143,11 +167,47 @@ func (s *Syncer) Sync() error {
 	return errs
 }
 
-func (s *Syncer) GetEmails(ldapConn *ldap.Conn, t TeamConfig, filter string) ([]string, error) {
+func (s *Syncer) GetEmailsForGroupFilter(ldapConn *ldap.Conn, filter string) ([]string, error) {
 	searchRequest := ldap.NewSearchRequest(
 		s.Config.LDAP.BaseDN,
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
-		filter, []string{s.Config.LDAP.Attributes.Email},
+		and(s.Config.LDAP.BaseGroupFilter, filter), []string{s.Config.LDAP.Attributes.Member},
+		nil,
+	)
+
+	sr, err := ldapConn.Search(searchRequest)
+	if err != nil {
+		return nil, fmt.Errorf("LDAP search failed: %w", err)
+	}
+
+	// first find set of members
+	var members []string
+	for _, entry := range sr.Entries {
+		members = append(members, entry.GetAttributeValues(s.Config.LDAP.Attributes.Member)...)
+	}
+
+	memberSet := make(map[string]bool)
+	for _, m := range members {
+		memberSet[m] = true
+	}
+
+	var emails []string
+	for m := range memberSet {
+		email, err := s.GetEmail(ldapConn, m)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch email for %s: %w", m, err)
+		}
+		emails = append(emails, *email)
+	}
+
+	return emails, nil
+}
+
+func (s *Syncer) GetEmailsForUserFilter(ldapConn *ldap.Conn, filter string) ([]string, error) {
+	searchRequest := ldap.NewSearchRequest(
+		s.Config.LDAP.BaseDN,
+		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
+		and(s.Config.LDAP.BaseUserFilter, filter), []string{s.Config.LDAP.Attributes.Email},
 		nil,
 	)
 
@@ -160,6 +220,33 @@ func (s *Syncer) GetEmails(ldapConn *ldap.Conn, t TeamConfig, filter string) ([]
 		emails = append(emails, entry.GetAttributeValues(s.Config.LDAP.Attributes.Email)...)
 	}
 	return emails, nil
+}
+
+func (s *Syncer) GetEmail(ldapConn *ldap.Conn, userDN string) (*string, error) {
+	if cachedEmail, found := s.UserCache.Get(userDN); found {
+		return cachedEmail.(*string), nil
+	}
+
+	searchRequest := ldap.NewSearchRequest(
+		userDN,
+		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
+		s.Config.LDAP.BaseUserFilter, []string{s.Config.LDAP.Attributes.Email},
+		nil,
+	)
+
+	sr, err := ldapConn.Search(searchRequest)
+	if err != nil {
+		return nil, fmt.Errorf("LDAP search failed: %w", err)
+	}
+
+	if len(sr.Entries) == 0 {
+		return nil, fmt.Errorf("%s not found", userDN)
+	}
+
+	email := sr.Entries[0].GetAttributeValue(s.Config.LDAP.Attributes.Email)
+	s.UserCache.Set(userDN, &email, cache.DefaultExpiration)
+
+	return &email, nil
 }
 
 func (s *Syncer) TeamSync(orgId int, team string, memberEmails, adminEmails []string) error {
