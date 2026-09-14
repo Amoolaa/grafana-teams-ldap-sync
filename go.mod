@@ -1,6 +1,6 @@
 module github.com/Amoolaa/grafana-teams-ldap-sync
 
-go 1.24.5
+go 1.25.0
 
 require (
 	github.com/go-ldap/ldap/v3 v3.4.11
@@ -26,7 +26,7 @@ require (
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	go.yaml.in/yaml/v3 v3.0.3 // indirect
-	golang.org/x/crypto v0.45.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/crypto v0.52.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
